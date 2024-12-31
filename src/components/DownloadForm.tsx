@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Music, Loader2, Download, Boxes, Repeat } from "lucide-react";
+import { Music, Loader2, Download, Repeat } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -117,7 +117,11 @@ function PlaylistDetails({ playlist, setPlaylist }: PlaylistDetailsProps) {
                     />
                     <div>
                         <p className="font-semibold text-white">{playlist.name}</p>
-                        <p className="text-sm text-gray-400">{playlist.tracks.length} tracks</p>
+                        <p className="text-sm text-gray-400">
+                            {playlist.type === "track"
+                                ? "Single Track"
+                                : `${playlist.tracks.length} tracks`}
+                        </p>
                     </div>
                 </div>
                 <button
@@ -185,6 +189,66 @@ function HistoryList({ history, setPlaylist, handleClearHistory }: HistoryListPr
     );
 }
 
+interface SingleTrackProps {
+    track: Track;
+    handleDownloadTrack: (name: string, trackId: string) => void;
+    downloadingTracks: Set<string>;
+    downloadIssues: string[];
+}
+
+function SingleTrack({
+    track,
+    handleDownloadTrack,
+    downloadingTracks,
+    downloadIssues,
+}: SingleTrackProps) {
+    const formatDuration = (ms: number) => {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return hours > 0
+            ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+                  .toString()
+                  .padStart(2, "0")}`
+            : `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    };
+
+    return (
+        <div className="flex items-center justify-between bg-gray-800 p-4 rounded-md transition-colors duration-200">
+            <div className="flex items-center space-x-4">
+                <img
+                    src={track.coverUrl}
+                    alt={`${track.name} cover`}
+                    className="w-16 h-16 object-cover rounded-md"
+                />
+                <div>
+                    <p className="font-semibold text-white">{track.name}</p>
+                    <p className="text-sm text-gray-400">
+                        {track.artists} {track.duration_ms && "-"}{" "}
+                        {formatDuration(track.duration_ms)}
+                    </p>
+                </div>
+            </div>
+            <Button
+                onClick={() => handleDownloadTrack(track.name, track.id)}
+                className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
+                size="sm"
+                disabled={downloadingTracks.has(track.id)}>
+                {downloadingTracks.has(track.id) ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                )}
+                Download
+            </Button>
+            {downloadIssues.includes(track.id) && (
+                <p className="absolute top-1 right-2 text-red-500 text-2xl">*</p>
+            )}
+        </div>
+    );
+}
+
 export default function DownloadForm() {
     const [url, setUrl] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -230,37 +294,42 @@ export default function DownloadForm() {
             const trackCollection: PlaylistResponse = await fetchTracks(url);
             if (!trackCollection.result)
                 throw new Error(trackCollection.error.message || "Failed to fetch tracks");
-            const tracks = trackCollection.result.tracks.map((track) => ({
-                id: track.id,
-                name: track.name,
-                artists: track.artists,
-                coverUrl: track.image || trackCollection.result.image,
-                duration_ms: track.duration_ms,
-            }));
-            const newPlaylist = {
+
+            let tracks: Track[] = [];
+            if (trackCollection.result.type === "track") {
+                tracks = [
+                    {
+                        id: trackCollection.result.id,
+                        name: trackCollection.result.name,
+                        artists: trackCollection.result.artists,
+                        coverUrl: trackCollection.result.image,
+                        duration_ms: trackCollection.result.duration_ms,
+                    },
+                ];
+            } else {
+                tracks =
+                    trackCollection.result.tracks?.map((track) => ({
+                        id: track.id,
+                        name: track.name,
+                        artists: track.artists,
+                        coverUrl: track.image || trackCollection.result.image,
+                        duration_ms: track.duration_ms,
+                    })) || [];
+            }
+
+            const newPlaylist: Playlist = {
                 url,
                 name: trackCollection.result.name,
                 type: trackCollection.result.type,
                 image: trackCollection.result.image,
                 owner: trackCollection.result.owner,
                 artists: trackCollection.result.artists,
-                tracks: tracks,
+                tracks,
             };
-            if (
-                (playlist &&
-                    newPlaylist.name !== playlist.name &&
-                    newPlaylist.type !== playlist.type &&
-                    newPlaylist.owner !== playlist.owner &&
-                    newPlaylist.artists !== playlist.artists) ||
-                !playlist
-            ) {
-                setPlaylist(newPlaylist);
-                toast.success(`Found ${tracks.length} tracks`);
-                updateHistory(newPlaylist);
-            } else {
-                console.log(playlist, newPlaylist);
-                toast.success("Playlist already open");
-            }
+
+            setPlaylist(newPlaylist);
+            toast.success(`Found ${tracks.length} tracks`);
+            updateHistory(newPlaylist);
         } catch (err) {
             toast.error(
                 `Error: ${err instanceof Error ? err.message : "An unknown error occurred"}`
@@ -374,33 +443,49 @@ export default function DownloadForm() {
                                 {playlist.type}
                             </h2>
                             <PlaylistDetails playlist={playlist} setPlaylist={setPlaylist} />
-                            <Button
-                                onClick={handleDownloadAll}
-                                className="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200">
-                                Download All
-                                <Download className="ml-2 h-4 w-4" />
-                                <Download className="h-4 w-4" />
-                                <Download className="h-4 w-4" />
-                            </Button>
-                            {downloadIssues.length > 0 && (
-                                <Button
-                                    onClick={handleDownloadFailed}
-                                    className="w-full bg-orange-500 opacity-100 hover:opacity-90 hover:bg-orange-500 text-gray-900 font-medium transition-opacity duration-200">
-                                    Retry Failed Downloads
-                                    <Repeat className="mr-2 h-4 w-4" />
-                                </Button>
+                            {playlist.type === "track" ? (
+                                <SingleTrack
+                                    track={playlist.tracks[0]}
+                                    handleDownloadTrack={handleDownloadTrack}
+                                    downloadingTracks={downloadingTracks}
+                                    downloadIssues={downloadIssues}
+                                />
+                            ) : (
+                                <>
+                                    <Button
+                                        onClick={handleDownloadAll}
+                                        className="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200">
+                                        Download All
+                                        <Download className="ml-2 h-4 w-4" />
+                                        <Download className="h-4 w-4" />
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                    {downloadIssues.length > 0 && (
+                                        <Button
+                                            onClick={handleDownloadFailed}
+                                            className="w-full bg-orange-500 opacity-100 hover:opacity-90 hover:bg-orange-500 text-gray-900 font-medium transition-opacity duration-200">
+                                            Retry Failed Downloads
+                                            <Repeat className="mr-2 h-4 w-4" />
+                                        </Button>
+                                    )}
+                                    {downloadingTracks.size > 0 && (
+                                        <div className="text-sm text-gray-200 capitalize">
+                                            {downloadingTracks.size} downloads in progress ...
+                                        </div>
+                                    )}
+                                    {downloadIssues.length > 0 && (
+                                        <div className="text-sm text-red-500">
+                                            {downloadIssues.length} downloads failed *
+                                        </div>
+                                    )}
+                                    <TrackList
+                                        playlist={playlist}
+                                        handleDownloadTrack={handleDownloadTrack}
+                                        downloadingTracks={downloadingTracks}
+                                        downloadIssues={downloadIssues}
+                                    />
+                                </>
                             )}
-                            {downloadingTracks.size > 0 && (
-                                <div className="text-sm text-gray-200 capitalize">
-                                    {downloadingTracks.size} downloads in progress ...
-                                </div>
-                            )}
-                            <TrackList
-                                playlist={playlist}
-                                handleDownloadTrack={handleDownloadTrack}
-                                downloadingTracks={downloadingTracks}
-                                downloadIssues={downloadIssues}
-                            />
                         </motion.div>
                     ) : (
                         history.length > 0 && (

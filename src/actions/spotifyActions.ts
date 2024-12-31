@@ -3,15 +3,21 @@
 import type { PlaylistResponse, FileResponse } from "@/types/api";
 
 export async function fetchTracks(url: string) {
-    const response = await fetch(`/api/tracks?url=${url}`);
+    url = url.trim();
+    if (/(http(s?):\/\/)|(open.spotify.com)/.test(url)) {
+        const response = await fetch(`/api/tracks?url=${url}`);
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch tracks");
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to fetch tracks");
+        }
+
+        const data: PlaylistResponse = await response.json();
+        return data;
+    } else {
+        // TODO: implement a search feature
+        throw new Error("Invalid URL");
     }
-
-    const data: PlaylistResponse = await response.json();
-    return data;
 }
 
 export async function downloadTrack(name: string, trackId: string) {

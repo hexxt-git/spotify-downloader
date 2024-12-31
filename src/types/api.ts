@@ -6,6 +6,7 @@ export type PlaylistResponse = {
         image: string;
         owner: string;
         artists: string;
+        duration_ms: number;
         tracks: {
             id: string;
             name: string;
