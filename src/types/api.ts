@@ -5,6 +5,7 @@ export type PlaylistResponse = {
         name: string;
         image: string;
         owner: string;
+        artists: string;
         tracks: {
             id: string;
             name: string;
@@ -14,9 +15,9 @@ export type PlaylistResponse = {
         }[];
         gid: number;
     };
+    error: { message: string };
 };
 
 export type FileResponse = {
     file_url: string;
 };
-

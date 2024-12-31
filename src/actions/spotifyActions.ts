@@ -11,7 +11,6 @@ export async function fetchTracks(url: string) {
     }
 
     const data: PlaylistResponse = await response.json();
-
     return data;
 }
 
@@ -31,8 +30,6 @@ export async function downloadTrack(name: string, trackId: string) {
         throw new Error("Failed to download the file");
     }
 
-    console.log(downloadResponse);
-
     if (typeof window !== "undefined") {
         const blob = await downloadResponse.blob();
         const url = window.URL.createObjectURL(blob);
@@ -44,7 +41,4 @@ export async function downloadTrack(name: string, trackId: string) {
         a.click();
         window.URL.revokeObjectURL(url);
     }
-}
-export async function downloadAllTracks(tracks: { name: string; id: string }[]) {
-    await Promise.all(tracks.map(({ name, id }) => downloadTrack(name, id)));
 }

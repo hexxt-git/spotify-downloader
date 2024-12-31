@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         });
 
         const data: PlaylistResponse = await response.json();
+        console.log(data);
         return NextResponse.json(data);
     } catch (error) {
         console.error("Error fetching tracks:", error);
