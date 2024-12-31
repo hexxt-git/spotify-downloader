@@ -364,16 +364,23 @@ export default function DownloadForm() {
                             <Button
                                 onClick={handleDownloadAll}
                                 className="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200">
-                                {<Boxes className="mr-2 h-4 w-4" />}
                                 Download All
+                                <Download className="ml-2 h-4 w-4" />
+                                <Download className="h-4 w-4" />
+                                <Download className="h-4 w-4" />
                             </Button>
                             {downloadIssues.length > 0 && (
                                 <Button
                                     onClick={handleDownloadFailed}
                                     className="w-full bg-orange-500 opacity-100 hover:opacity-90 hover:bg-orange-500 text-gray-900 font-medium transition-opacity duration-200">
-                                    <Repeat className="mr-2 h-4 w-4" />
                                     Retry Failed Downloads
+                                    <Repeat className="mr-2 h-4 w-4" />
                                 </Button>
+                            )}
+                            {downloadingTracks.size > 0 && (
+                                <div className="text-sm text-gray-200 capitalize">
+                                    {downloadingTracks.size} downloads in progress ...
+                                </div>
                             )}
                             <TrackList
                                 playlist={playlist}
