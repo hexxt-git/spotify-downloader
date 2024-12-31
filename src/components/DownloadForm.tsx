@@ -133,16 +133,24 @@ function PlaylistDetails({ playlist, setPlaylist }: PlaylistDetailsProps) {
 interface HistoryListProps {
     history: Playlist[];
     setPlaylist: (playlist: Playlist) => void;
+    handleClearHistory: () => void;
 }
 
-function HistoryList({ history, setPlaylist }: HistoryListProps) {
+function HistoryList({ history, setPlaylist, handleClearHistory }: HistoryListProps) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="space-y-4">
-            <h2 className="text-xl font-semibold text-green-400">History</h2>
+            <div className="flex items-end justify-between">
+                <h2 className="text-xl font-semibold text-green-400">History</h2>
+                <button
+                    onClick={handleClearHistory}
+                    className="text-gray-400 hover:text-gray-200 transition-colors duration-200 me-2">
+                    clear
+                </button>
+            </div>
             <ul className="space-y-3">
                 {history.map((playlist, index) => (
                     <motion.li
@@ -204,6 +212,11 @@ export default function DownloadForm() {
             .slice(0, 5);
         setHistory(updatedHistory);
         localStorage.setItem("playlistHistory", JSON.stringify(updatedHistory));
+    };
+
+    const handleClearHistory = () => {
+        setHistory([]);
+        localStorage.removeItem("playlistHistory");
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -391,7 +404,11 @@ export default function DownloadForm() {
                         </motion.div>
                     ) : (
                         history.length > 0 && (
-                            <HistoryList history={history} setPlaylist={setPlaylist} />
+                            <HistoryList
+                                history={history}
+                                setPlaylist={setPlaylist}
+                                handleClearHistory={handleClearHistory}
+                            />
                         )
                     )}
                 </AnimatePresence>
