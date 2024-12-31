@@ -3,7 +3,7 @@
 import type { PlaylistResponse, FileResponse } from "@/types/api";
 
 export async function fetchTracks(url: string) {
-    const response = await fetch(`http://localhost:3000/api/tracks?url=${url}`);
+    const response = await fetch(`/api/tracks?url=${url}`);
 
     if (!response.ok) {
         const errorData = await response.json();
@@ -16,7 +16,7 @@ export async function fetchTracks(url: string) {
 }
 
 export async function downloadTrack(name: string, trackId: string) {
-    const response = await fetch(`http://localhost:3000/api/download?id=${trackId}`);
+    const response = await fetch(`/api/download?id=${trackId}`);
 
     if (!response.ok) {
         const errorData = await response.json();
