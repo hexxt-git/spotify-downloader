@@ -7,9 +7,9 @@ export function cn(...inputs: ClassValue[]) {
 
 export async function fetchWithRetry(
     url: string,
-    options: RequestInit,
-    retries: number = 10,
-    delay: number = 2000
+    options: RequestInit = {},
+    retries = 10,
+    delay = 2000
 ): Promise<Response> {
     let currentDelay = delay;
     for (let i = 0; i < retries; i++) {
@@ -25,7 +25,7 @@ export async function fetchWithRetry(
         }
         if (i < retries - 1) {
             await new Promise((resolve) => setTimeout(resolve, currentDelay));
-            currentDelay *= 4;
+            currentDelay *= 2;
         }
     }
     throw new Error("Failed to fetch after multiple attempts");
