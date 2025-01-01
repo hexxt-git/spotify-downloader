@@ -1,15 +1,15 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+    return twMerge(clsx(inputs));
 }
 
 export async function fetchWithRetry(
     url: string,
     options: RequestInit,
-    retries: number = 5,
-    delay: number = 1000
+    retries: number = 10,
+    delay: number = 2000
 ): Promise<Response> {
     let currentDelay = delay;
     for (let i = 0; i < retries; i++) {
