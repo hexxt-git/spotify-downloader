@@ -13,7 +13,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="en" className="dark">
             <body className={`${inter.className} text-white antialiased`}>
-                <Toaster richColors={true} />
+                <Toaster
+                    richColors={true}
+                    visibleToasts={7}
+                    theme="dark"
+                    toastOptions={{ style: { background: "#080b16" } }}
+                />
                 {children}
             </body>
         </html>

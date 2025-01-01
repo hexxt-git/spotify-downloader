@@ -1,11 +1,12 @@
 "use client";
 
+import { fetchWithRetry } from "@/lib/utils";
 import type { PlaylistResponse, FileResponse } from "@/types/api";
 
 export async function fetchTracks(url: string) {
     url = url.trim();
     if (/(http(s?):\/\/)|(open.spotify.com)/.test(url)) {
-        const response = await fetch(`/api/tracks?url=${url}`);
+        const response = await fetchWithRetry(`/api/tracks?url=${url}`);
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -21,7 +22,7 @@ export async function fetchTracks(url: string) {
 }
 
 export async function getDownloadUrl(trackId: string): Promise<string> {
-    const response = await fetch(`/api/download?id=${trackId}`);
+    const response = await fetchWithRetry(`/api/download?id=${trackId}`);
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to get download URL");
@@ -33,7 +34,7 @@ export async function getDownloadUrl(trackId: string): Promise<string> {
 
 export async function downloadTrack(name: string, trackId: string) {
     const fileUrl = await getDownloadUrl(trackId);
-    const downloadResponse = await fetch(fileUrl);
+    const downloadResponse = await fetchWithRetry(fileUrl);
     if (!downloadResponse.ok) {
         throw new Error("Failed to download the file");
     }

@@ -32,6 +32,7 @@ interface TrackListProps {
     playlist: Playlist;
     handleDownloadTrack: (name: string, trackId: string) => void;
     downloadingTracks: Set<string>;
+    queuedTracks: Set<string>;
     downloadIssues: string[];
 }
 
@@ -39,6 +40,7 @@ function TrackList({
     playlist,
     handleDownloadTrack,
     downloadingTracks,
+    queuedTracks,
     downloadIssues,
 }: TrackListProps) {
     return (
@@ -52,6 +54,7 @@ function TrackList({
                         index={index}
                         handleDownloadTrack={handleDownloadTrack}
                         downloadingTracks={downloadingTracks}
+                        queuedTracks={queuedTracks}
                         downloadIssues={downloadIssues}
                     />
                 ))}
@@ -65,6 +68,7 @@ interface TrackProps {
     index: number;
     handleDownloadTrack: (name: string, trackId: string) => void;
     downloadingTracks: Set<string>;
+    queuedTracks: Set<string>;
     downloadIssues: string[];
 }
 
@@ -73,6 +77,7 @@ function Track({
     index,
     handleDownloadTrack,
     downloadingTracks,
+    queuedTracks,
     downloadIssues,
 }: TrackProps) {
     const formatDuration = (ms: number) => {
@@ -105,6 +110,9 @@ function Track({
             setFetchingStream(false);
         }
     };
+
+    const isDownloading = downloadingTracks.has(track.id);
+    const isQueued = queuedTracks.has(track.id);
 
     return (
         <>
@@ -155,13 +163,14 @@ function Track({
                         onClick={() => handleDownloadTrack(track.name, track.id)}
                         className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
                         size="sm"
-                        disabled={downloadingTracks.has(track.id)}>
-                        {downloadingTracks.has(track.id) ? (
+                        disabled={isDownloading || isQueued}>
+                        {isDownloading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : isQueued ? (
+                            `Queued`
                         ) : (
                             <Download className="h-4 w-4" strokeWidth={2.5} />
                         )}
-                        Download
                     </Button>
                 </div>
                 {downloadIssues.includes(track.id) && (
@@ -280,6 +289,7 @@ export default function DownloadForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [playlist, setPlaylist] = useState<Playlist | null>();
     const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
+    const [queuedTracks, setQueuedTracks] = useState<Set<string>>(new Set());
     const [downloadIssues, setDownloadIssues] = useState<string[]>([]);
     const [history, setHistory] = useState<Playlist[]>([]);
 
@@ -297,7 +307,7 @@ export default function DownloadForm() {
     const updateHistory = (newPlaylist: Playlist) => {
         const updatedHistory = [newPlaylist, ...history]
             .filter(
-                (playlist, index, self) => index === self.findIndex((p) => p.url === playlist.url)
+                (pl, idx, self) => idx === self.findIndex((p) => p.url === pl.url)
             )
             .slice(0, 10);
         setHistory(updatedHistory);
@@ -315,7 +325,6 @@ export default function DownloadForm() {
 
         setIsLoading(true);
         toast("Fetching tracks...");
-
         try {
             const trackCollection: PlaylistResponse = await fetchTracks(url);
             if (!trackCollection.result)
@@ -334,12 +343,12 @@ export default function DownloadForm() {
                 ];
             } else {
                 tracks =
-                    trackCollection.result.tracks?.map((track) => ({
-                        id: track.id,
-                        name: track.name,
-                        artists: track.artists,
-                        coverUrl: track.image || trackCollection.result.image,
-                        duration_ms: track.duration_ms,
+                    trackCollection.result.tracks?.map((t) => ({
+                        id: t.id,
+                        name: t.name,
+                        artists: t.artists,
+                        coverUrl: t.image || trackCollection.result.image,
+                        duration_ms: t.duration_ms,
                     })) || [];
             }
 
@@ -368,11 +377,11 @@ export default function DownloadForm() {
     const handleDownloadTrack = async (name: string, trackId: string) => {
         if (downloadingTracks.has(trackId)) return;
         setDownloadingTracks((prev) => new Set(prev).add(trackId));
-        toast(`Downloading track ${name}...`);
+        // toast(`Downloading track ${name}...`);
         try {
             setDownloadIssues((prev) => prev.filter((id) => id !== trackId));
             await downloadTrack(name, trackId);
-            toast.success(`Track ${name} downloaded successfully!`);
+            // toast.success(`Track ${name} downloaded successfully!`);
         } catch (err) {
             setDownloadIssues((prev) => [...prev, trackId]);
             toast.error(
@@ -389,37 +398,59 @@ export default function DownloadForm() {
         }
     };
 
-    const handleDownloadFailed = async () => {
-        toast("Retrying failed downloads...");
-        try {
-            for (const trackId of downloadIssues) {
-                const track = playlist!.tracks.find((t) => t.id === trackId);
-                if (track) {
-                    await handleDownloadTrack(track.name, track.id);
-                }
+    const handleDownloadTrackList = async (tracks: Track[]) => {
+        if (!tracks.length) return;
+        setQueuedTracks(new Set(tracks.map((t) => t.id)));
+        const queue = [...tracks];
+        const maxConcurrentDownloads = 15;
+        const downloadPromises: Promise<void>[] = [];
+
+        const downloadNext = async () => {
+            if (queue.length === 0) return;
+            const track = queue.shift();
+            if (track) {
+                setQueuedTracks((prev) => {
+                    const newSet = new Set(prev);
+                    newSet.delete(track.id);
+                    return newSet;
+                });
+                await handleDownloadTrack(track.name, track.id);
+                await downloadNext();
             }
-        } catch (err) {
-            toast.error(
-                `Error retrying failed tracks: ${
-                    err instanceof Error ? err.message : "An unknown error occurred"
-                }`
-            );
+        };
+
+        for (let i = 0; i < maxConcurrentDownloads; i++) {
+            downloadPromises.push(downloadNext());
         }
+
+        await Promise.all(downloadPromises);
     };
 
     const handleDownloadAll = async () => {
         toast("Preparing to download all tracks...");
         try {
-            for (const track of playlist!.tracks) {
-                await handleDownloadTrack(track.name, track.id);
-            }
+            await handleDownloadTrackList(playlist?.tracks ?? []);
         } catch (err) {
             toast.error(
                 `Error downloading all tracks: ${
                     err instanceof Error ? err.message : "An unknown error occurred"
                 }`
             );
-        } finally {
+        }
+    };
+
+    const handleDownloadFailed = async () => {
+        toast("Retrying failed downloads...");
+        try {
+            const failedTracks =
+                playlist?.tracks.filter((t) => downloadIssues.includes(t.id)) || [];
+            await handleDownloadTrackList(failedTracks);
+        } catch (err) {
+            toast.error(
+                `Error retrying failed tracks: ${
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
+            );
         }
     };
 
@@ -473,6 +504,7 @@ export default function DownloadForm() {
                                     index={0}
                                     handleDownloadTrack={handleDownloadTrack}
                                     downloadingTracks={downloadingTracks}
+                                    queuedTracks={queuedTracks}
                                     downloadIssues={downloadIssues}
                                 />
                             ) : (
@@ -485,6 +517,7 @@ export default function DownloadForm() {
                                         <Download className="h-4 w-4" />
                                         <Download className="h-4 w-4" />
                                     </Button>
+                                    <div>
                                     {downloadIssues.length > 0 && (
                                         <Button
                                             onClick={handleDownloadFailed}
@@ -498,15 +531,22 @@ export default function DownloadForm() {
                                             {downloadingTracks.size} downloads in progress ...
                                         </div>
                                     )}
+                                    {queuedTracks.size > 0 && (
+                                        <div className="text-sm text-blue-400 capitalize">
+                                            {queuedTracks.size} in queue ...
+                                        </div>
+                                    )}
                                     {downloadIssues.length > 0 && (
                                         <div className="text-sm text-red-500">
                                             {downloadIssues.length} downloads failed *
                                         </div>
                                     )}
+                                    </div>
                                     <TrackList
                                         playlist={playlist}
                                         handleDownloadTrack={handleDownloadTrack}
                                         downloadingTracks={downloadingTracks}
+                                        queuedTracks={queuedTracks}
                                         downloadIssues={downloadIssues}
                                     />
                                 </>
