@@ -20,7 +20,7 @@ export async function fetchTracks(url: string) {
     }
 }
 
-export async function downloadTrack(name: string, trackId: string) {
+export async function getDownloadUrl(trackId: string): Promise<string> {
     const response = await fetch(`/api/download?id=${trackId}`);
     if (!response.ok) {
         const errorData = await response.json();
@@ -28,7 +28,12 @@ export async function downloadTrack(name: string, trackId: string) {
     }
 
     const data: FileResponse = await response.json();
-    const downloadResponse = await fetch(data.file_url);
+    return data.file_url;
+}
+
+export async function downloadTrack(name: string, trackId: string) {
+    const fileUrl = await getDownloadUrl(trackId);
+    const downloadResponse = await fetch(fileUrl);
     if (!downloadResponse.ok) {
         throw new Error("Failed to download the file");
     }

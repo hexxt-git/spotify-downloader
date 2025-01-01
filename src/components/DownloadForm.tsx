@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Music, Loader2, Download, Repeat } from "lucide-react";
+import { Music, Loader2, Download, Repeat, Play } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { fetchTracks, downloadTrack } from "@/actions/spotifyActions";
+import { fetchTracks, downloadTrack, getDownloadUrl } from "@/actions/spotifyActions";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PlaylistResponse } from "@/types/api";
 import { toast } from "sonner";
@@ -41,6 +41,40 @@ function TrackList({
     downloadingTracks,
     downloadIssues,
 }: TrackListProps) {
+    return (
+        <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-green-400">Track List</h2>
+            <ul className="space-y-3">
+                {playlist.tracks.map((track, index) => (
+                    <Track
+                        key={track.id}
+                        track={track}
+                        index={index}
+                        handleDownloadTrack={handleDownloadTrack}
+                        downloadingTracks={downloadingTracks}
+                        downloadIssues={downloadIssues}
+                    />
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+interface TrackProps {
+    track: Track;
+    index: number;
+    handleDownloadTrack: (name: string, trackId: string) => void;
+    downloadingTracks: Set<string>;
+    downloadIssues: string[];
+}
+
+function Track({
+    track,
+    index,
+    handleDownloadTrack,
+    downloadingTracks,
+    downloadIssues,
+}: TrackProps) {
     const formatDuration = (ms: number) => {
         const totalSeconds = Math.floor(ms / 1000);
         const hours = Math.floor(totalSeconds / 3600);
@@ -52,51 +86,103 @@ function TrackList({
                   .padStart(2, "0")}`
             : `${minutes}:${seconds.toString().padStart(2, "0")}`;
     };
+
+    const [streamUrl, setStreamUrl] = useState<string | null>(null);
+    const [fetchingStream, setFetchingStream] = useState(false);
+
+    const handleStreamTrack = async (trackId: string) => {
+        setFetchingStream(true);
+        try {
+            const url = await getDownloadUrl(trackId);
+            setStreamUrl(url);
+        } catch (err) {
+            toast.error(
+                `Error streaming: ${
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
+            );
+        } finally {
+            setFetchingStream(false);
+        }
+    };
+
     return (
-        <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-green-400">Track List</h2>
-            <ul className="space-y-3">
-                {playlist.tracks.map((track, index) => (
-                    <motion.li
-                        key={track.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="relative flex items-center justify-between bg-gray-800 p-4 rounded-md transition-colors duration-200">
-                        <div className="flex items-center space-x-4">
-                            <img
-                                src={track.coverUrl}
-                                alt={`${track.name} cover`}
-                                className="w-16 h-16 object-cover rounded-md"
-                            />
-                            <div>
-                                <p className="font-semibold text-white">{track.name}</p>
-                                <p className="text-sm text-gray-400">
-                                    {track.artists} {track.duration_ms && "-"}{" "}
-                                    {formatDuration(track.duration_ms)}
-                                </p>
-                            </div>
-                        </div>
-                        <Button
-                            onClick={() => handleDownloadTrack(track.name, track.id)}
-                            className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
-                            size="sm"
-                            disabled={downloadingTracks.has(track.id)}>
-                            {downloadingTracks.has(track.id) ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <>
+            <motion.li
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ delay: Math.min(1, index * 0.05) }}
+                className="relative flex items-center justify-between bg-gray-800 p-4 rounded-md transition-colors duration-200">
+                <div className="flex items-center space-x-4">
+                    <div className="group relative">
+                        <img
+                            src={track.coverUrl}
+                            alt={`${track.name} cover`}
+                            className="w-16 h-16 object-cover rounded-md"
+                        />
+                        <div
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center rounded-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            onClick={() => handleStreamTrack(track.id)}>
+                            {fetchingStream ? (
+                                <Loader2 className="h-8 w-8 animate-spin" />
                             ) : (
-                                <Download className="mr-2 h-4 w-4" />
+                                <Play className="h-6 w-6 text-green-400" strokeWidth={3} />
                             )}
-                            Download
-                        </Button>
-                        {downloadIssues.includes(track.id) && (
-                            <p className="absolute top-1 right-2 text-red-500 text-2xl">*</p>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-white">{track.name}</p>
+                        <p className="text-sm text-gray-400">
+                            {track.artists} {track.duration_ms && "-"}{" "}
+                            {formatDuration(track.duration_ms)}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <Button
+                        onClick={() => handleStreamTrack(track.id)}
+                        className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
+                        size="sm"
+                        disabled={fetchingStream}>
+                        {fetchingStream ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Play className="h-4 w-4" strokeWidth={2.5} />
                         )}
-                    </motion.li>
-                ))}
-            </ul>
-        </div>
+                    </Button>
+                    <Button
+                        onClick={() => handleDownloadTrack(track.name, track.id)}
+                        className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
+                        size="sm"
+                        disabled={downloadingTracks.has(track.id)}>
+                        {downloadingTracks.has(track.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="h-4 w-4" strokeWidth={2.5} />
+                        )}
+                        Download
+                    </Button>
+                </div>
+                {downloadIssues.includes(track.id) && (
+                    <p className="absolute top-1 right-2 text-red-500 text-2xl">*</p>
+                )}
+            </motion.li>
+            {streamUrl && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="bg-gray-800 p-2 rounded-md">
+                    <audio
+                        autoPlay
+                        src={streamUrl}
+                        controls
+                        className="w-full bg-transparent rounded-sm"
+                    />
+                </motion.div>
+            )}
+        </>
     );
 }
 
@@ -189,72 +275,12 @@ function HistoryList({ history, setPlaylist, handleClearHistory }: HistoryListPr
     );
 }
 
-interface SingleTrackProps {
-    track: Track;
-    handleDownloadTrack: (name: string, trackId: string) => void;
-    downloadingTracks: Set<string>;
-    downloadIssues: string[];
-}
-
-function SingleTrack({
-    track,
-    handleDownloadTrack,
-    downloadingTracks,
-    downloadIssues,
-}: SingleTrackProps) {
-    const formatDuration = (ms: number) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return hours > 0
-            ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
-                  .toString()
-                  .padStart(2, "0")}`
-            : `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    };
-
-    return (
-        <div className="flex items-center justify-between bg-gray-800 p-4 rounded-md transition-colors duration-200">
-            <div className="flex items-center space-x-4">
-                <img
-                    src={track.coverUrl}
-                    alt={`${track.name} cover`}
-                    className="w-16 h-16 object-cover rounded-md"
-                />
-                <div>
-                    <p className="font-semibold text-white">{track.name}</p>
-                    <p className="text-sm text-gray-400">
-                        {track.artists} {track.duration_ms && "-"}{" "}
-                        {formatDuration(track.duration_ms)}
-                    </p>
-                </div>
-            </div>
-            <Button
-                onClick={() => handleDownloadTrack(track.name, track.id)}
-                className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
-                size="sm"
-                disabled={downloadingTracks.has(track.id)}>
-                {downloadingTracks.has(track.id) ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                )}
-                Download
-            </Button>
-            {downloadIssues.includes(track.id) && (
-                <p className="absolute top-1 right-2 text-red-500 text-2xl">*</p>
-            )}
-        </div>
-    );
-}
-
 export default function DownloadForm() {
     const [url, setUrl] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [playlist, setPlaylist] = useState<Playlist | null>();
     const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
-    const [downloadIssues, setDownloadIssues] = useState<string[]>([]); // keeps Ids of tracks that failed to download
+    const [downloadIssues, setDownloadIssues] = useState<string[]>([]);
     const [history, setHistory] = useState<Playlist[]>([]);
 
     useEffect(() => {
@@ -273,7 +299,7 @@ export default function DownloadForm() {
             .filter(
                 (playlist, index, self) => index === self.findIndex((p) => p.url === playlist.url)
             )
-            .slice(0, 5);
+            .slice(0, 10);
         setHistory(updatedHistory);
         localStorage.setItem("playlistHistory", JSON.stringify(updatedHistory));
     };
@@ -366,14 +392,12 @@ export default function DownloadForm() {
     const handleDownloadFailed = async () => {
         toast("Retrying failed downloads...");
         try {
-            await Promise.all(
-                downloadIssues.map((trackId) => {
-                    const track = playlist!.tracks.find((t) => t.id === trackId);
-                    if (track) {
-                        return handleDownloadTrack(track.name, track.id);
-                    }
-                })
-            );
+            for (const trackId of downloadIssues) {
+                const track = playlist!.tracks.find((t) => t.id === trackId);
+                if (track) {
+                    await handleDownloadTrack(track.name, track.id);
+                }
+            }
         } catch (err) {
             toast.error(
                 `Error retrying failed tracks: ${
@@ -386,9 +410,9 @@ export default function DownloadForm() {
     const handleDownloadAll = async () => {
         toast("Preparing to download all tracks...");
         try {
-            await Promise.all(
-                playlist!.tracks.map((track) => handleDownloadTrack(track.name, track.id))
-            );
+            for (const track of playlist!.tracks) {
+                await handleDownloadTrack(track.name, track.id);
+            }
         } catch (err) {
             toast.error(
                 `Error downloading all tracks: ${
@@ -444,8 +468,9 @@ export default function DownloadForm() {
                             </h2>
                             <PlaylistDetails playlist={playlist} setPlaylist={setPlaylist} />
                             {playlist.type === "track" ? (
-                                <SingleTrack
+                                <Track
                                     track={playlist.tracks[0]}
+                                    index={0}
                                     handleDownloadTrack={handleDownloadTrack}
                                     downloadingTracks={downloadingTracks}
                                     downloadIssues={downloadIssues}
