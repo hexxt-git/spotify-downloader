@@ -7,14 +7,20 @@ const downloadUrl: string = process.env.DOWNLOAD_API_URL || "";
 export async function GET(request: NextRequest) {
     if (!downloadUrl) {
         console.error("Missing DOWNLOAD_API_URL environment variable");
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return NextResponse.json(
+            { error: "Internal server error" },
+            { status: 500 },
+        );
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
-        return NextResponse.json({ error: "Missing id parameter" }, { status: 400 });
+        return NextResponse.json(
+            { error: "Missing id parameter" },
+            { status: 400 },
+        );
     }
 
     try {
@@ -45,7 +51,7 @@ export async function GET(request: NextRequest) {
             console.error(`API error: ${response.status} ${errorText}`);
             return NextResponse.json(
                 { error: `API error: ${response.status}` },
-                { status: response.status }
+                { status: response.status },
             );
         }
 
@@ -53,6 +59,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(data);
     } catch (error) {
         console.error("Error fetching download URL:", error);
-        return NextResponse.json({ error: "Failed to fetch download URL" }, { status: 500 });
+        return NextResponse.json(
+            { error: "Failed to fetch download URL" },
+            { status: 500 },
+        );
     }
 }

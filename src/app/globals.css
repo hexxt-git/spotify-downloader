@@ -41,6 +41,8 @@
         background-image: radial-gradient(#fff2 1px, transparent 1px),
             radial-gradient(#fff2 1px, transparent 1px);
         background-size: 60px 60px;
-        background-position: 0 0, 30px 30px;
+        background-position:
+            0 0,
+            30px 30px;
     }
 }

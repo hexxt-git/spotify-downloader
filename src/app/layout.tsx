@@ -9,7 +9,11 @@ export const metadata = {
     description: "Download your favorite Spotify playlists, albums, and songs",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     return (
         <html lang="en" className="dark">
             <body className={`${inter.className} text-white antialiased`}>

@@ -9,7 +9,7 @@ export async function fetchWithRetry(
     url: string,
     options: RequestInit = {},
     retries = 10,
-    delay = 500
+    delay = 500,
 ): Promise<Response> {
     let currentDelay = delay;
     for (let i = 0; i < retries; i++) {
