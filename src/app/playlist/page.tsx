@@ -2,16 +2,23 @@
 
 import { PlaylistView } from "@/components/PlaylistView";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function PlaylistPage() {
+function PlaylistContent() {
     const searchParams = useSearchParams();
     const url = searchParams.get("url");
 
     if (!url) return null;
 
+    return <PlaylistView encodedUrl={url} />;
+}
+
+export default function PlaylistPage() {
     return (
         <main className="min-h-screen text-white flex flex-col items-center justify-center p-4 lg:p-12">
-            <PlaylistView encodedUrl={url} />
+            <Suspense>
+                <PlaylistContent />
+            </Suspense>
         </main>
     );
 }
