@@ -2,22 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Music, Loader2, Download, Repeat } from "lucide-react";
+import { Music, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { fetchTracks, downloadTrack } from "@/actions/spotifyActions";
-import { motion, AnimatePresence } from "framer-motion";
+import { downloadTrack } from "@/actions/spotifyActions";
+import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Track } from "./Track/Track";
-import TrackList from "./Track/TrackList";
-import { PlaylistDetails } from "./PlaylistDetails";
 import { HistoryList } from "./HistoryList";
 import type {
     Playlist as PlaylistType,
     Track as TrackType,
 } from "@/types/spotify";
-import type { PlaylistResponse } from "@/types/api";
 
 export default function DownloadForm() {
     const router = useRouter();

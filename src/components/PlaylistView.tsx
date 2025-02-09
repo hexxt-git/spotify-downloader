@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Download, Repeat, Loader2 } from "lucide-react";
+import { Download, Repeat, Loader2, Trash } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { fetchTracks, downloadTrack } from "@/actions/spotifyActions";
@@ -13,6 +13,7 @@ import TrackList from "./Track/TrackList";
 import { Track } from "./Track/Track";
 import type { Playlist, Track as TrackType } from "@/types/spotify";
 import type { PlaylistResponse } from "@/types/api";
+import { DeletePrompt } from "./DeletePrompt";
 
 interface PlaylistViewProps {
     encodedUrl: string;
@@ -22,11 +23,11 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [playlist, setPlaylist] = useState<Playlist | null>(null);
-    const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(
-        new Set(),
-    );
+    const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
     const [queuedTracks, setQueuedTracks] = useState<Set<string>>(new Set());
     const [downloadIssues, setDownloadIssues] = useState<string[]>([]);
+    const [deletePromptOpen, setDeletePromptOpen] = useState(false);
+    const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null);
 
     useEffect(() => {
         const loadPlaylist = async () => {
@@ -46,13 +47,9 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                 }
 
                 // If not in history, fetch from API
-                const trackCollection: PlaylistResponse =
-                    await fetchTracks(url);
+                const trackCollection: PlaylistResponse = await fetchTracks(url);
                 if (!trackCollection.result) {
-                    throw new Error(
-                        trackCollection.error.message ||
-                            "Failed to fetch tracks",
-                    );
+                    throw new Error(trackCollection.error.message || "Failed to fetch tracks");
                 }
 
                 let tracks: TrackType[] = [];
@@ -91,7 +88,7 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                 updateHistory(newPlaylist);
             } catch (err) {
                 toast.error(
-                    `Error: ${err instanceof Error ? err.message : "An unknown error occurred"}`,
+                    `Error: ${err instanceof Error ? err.message : "An unknown error occurred"}`
                 );
                 router.push("/");
             } finally {
@@ -106,10 +103,7 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
         const storedHistory = localStorage.getItem("playlistHistory");
         const history = storedHistory ? JSON.parse(storedHistory) : [];
         const updatedHistory = [newPlaylist, ...history]
-            .filter(
-                (pl, idx, self) =>
-                    idx === self.findIndex((p) => p.url === pl.url),
-            )
+            .filter((pl, idx, self) => idx === self.findIndex((p) => p.url === pl.url))
             .slice(0, 10);
         localStorage.setItem("playlistHistory", JSON.stringify(updatedHistory));
     };
@@ -124,10 +118,8 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
             setDownloadIssues((prev) => [...prev, trackId]);
             toast.error(
                 `Error downloading track ${trackId}: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         } finally {
             setDownloadingTracks((prev) => {
@@ -173,10 +165,8 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
         } catch (err) {
             toast.error(
                 `Error downloading all tracks: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         }
     };
@@ -185,40 +175,52 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
         toast("Retrying failed downloads...");
         try {
             const failedTracks =
-                playlist?.tracks.filter((t) => downloadIssues.includes(t.id)) ||
-                [];
+                playlist?.tracks.filter((t) => downloadIssues.includes(t.id)) || [];
             await handleDownloadTrackList(failedTracks);
         } catch (err) {
             toast.error(
                 `Error retrying failed tracks: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         }
     };
 
-    const deleteTrack = (index: number, mode: "single" | "below" | "above") => {
-        if (!playlist) return;
-
+    const deleteTrack = (index: number, mode: "single" | "above" | "below") => {
+        
         setPlaylist((prev) => {
             if (!prev) return prev;
-
             const newTracks = [...prev.tracks];
-            if (mode === "below") {
-                newTracks.splice(index);
-            } else if (mode === "above") {
-                newTracks.splice(0, index + 1);
-            } else {
-                newTracks.splice(index, 1);
+            switch (mode) {
+                case "single":
+                    newTracks.splice(index, 1);
+                    break;
+                case "above":
+                    newTracks.splice(0, index + 1);
+                    break;
+                case "below":
+                    newTracks.splice(index);
+                    break;
+                default:
+                    break;
             }
-
             return {
                 ...prev,
                 tracks: newTracks,
             };
         });
+
+        setDeletePromptOpen(false);
+        setSelectedTrackIndex(null);
+    };
+
+    const handleDelete = (index: number, quick: boolean) => {
+        if (quick) {
+            deleteTrack(index, "single");
+        } else {
+            setSelectedTrackIndex(index);
+            setDeletePromptOpen(true);
+        }
     };
 
     if (isLoading) {
@@ -249,8 +251,7 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 20 }}
-                    className="space-y-4"
-                >
+                    className="space-y-4">
                     <PlaylistDetails
                         playlist={playlist}
                         setPlaylist={(p) => p === null && router.push("/")}
@@ -261,16 +262,17 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                             index={0}
                             handleDownloadTrack={handleDownloadTrack}
                             downloadingTracks={downloadingTracks}
-                            queuedTracks={queuedTracks}
-                            downloadIssues={downloadIssues}
+                            queuedTrack={queuedTracks.has(playlist.tracks[0].id)}
+                            downloadIssue={downloadIssues.find(
+                                (issue) => issue === playlist.tracks[0].id
+                            )}
                         />
                     ) : (
                         <>
                             <Button
                                 onClick={handleDownloadAll}
                                 className="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
-                                title="Download all tracks in the playlist"
-                            >
+                                title="Download all tracks in the playlist">
                                 Download All
                                 <Download className="ml-2 h-4 w-4" />
                                 <Download className="h-4 w-4" />
@@ -281,16 +283,14 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                                     <Button
                                         onClick={handleDownloadFailed}
                                         className="w-full bg-orange-500 opacity-100 hover:opacity-90 hover:bg-orange-500 text-gray-900 font-medium transition-opacity duration-200"
-                                        title="Retry downloading tracks that failed"
-                                    >
+                                        title="Retry downloading tracks that failed">
                                         Retry Failed Downloads
                                         <Repeat className="mr-2 h-4 w-4" />
                                     </Button>
                                 )}
                                 {downloadingTracks.size > 0 && (
                                     <div className="text-sm text-gray-200 capitalize">
-                                        {downloadingTracks.size} downloads in
-                                        progress ...
+                                        {downloadingTracks.size} downloads in progress ...
                                     </div>
                                 )}
                                 {queuedTracks.size > 0 && (
@@ -300,8 +300,7 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                                 )}
                                 {downloadIssues.length > 0 && (
                                     <div className="text-sm text-red-500">
-                                        {downloadIssues.length} downloads failed
-                                        *
+                                        {downloadIssues.length} downloads failed *
                                     </div>
                                 )}
                             </div>
@@ -311,11 +310,23 @@ export function PlaylistView({ encodedUrl }: PlaylistViewProps) {
                                 downloadingTracks={downloadingTracks}
                                 queuedTracks={queuedTracks}
                                 downloadIssues={downloadIssues}
-                                deleteTrack={deleteTrack}
+                                deleteTrack={handleDelete}
                             />
                         </>
                     )}
                 </motion.div>
+                <DeletePrompt
+                    index={selectedTrackIndex ?? 0}
+                    isOpen={deletePromptOpen}
+                    onClose={() => {
+                        setDeletePromptOpen(false);
+                        setSelectedTrackIndex(null);
+                    }}
+                    onDelete={deleteTrack}
+                    trackName={
+                        selectedTrackIndex !== null ? playlist?.tracks[selectedTrackIndex].name : ""
+                    }
+                />
             </CardContent>
         </Card>
     );

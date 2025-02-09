@@ -8,7 +8,7 @@ interface TrackListProps {
     downloadingTracks: Set<string>;
     queuedTracks: Set<string>;
     downloadIssues: string[];
-    deleteTrack: (index: number, mode: "single" | "below" | "above") => void;
+    deleteTrack: (index: number, quick: boolean) => void;
 }
 
 export default function TrackList({
@@ -31,8 +31,8 @@ export default function TrackList({
                             index={index}
                             handleDownloadTrack={handleDownloadTrack}
                             downloadingTracks={downloadingTracks}
-                            queuedTracks={queuedTracks}
-                            downloadIssues={downloadIssues}
+                            queuedTrack={queuedTracks.has(track.id)}
+                            downloadIssue={downloadIssues.find((issue) => issue === track.id)}
                             deleteTrack={deleteTrack}
                         />
                     ))}
