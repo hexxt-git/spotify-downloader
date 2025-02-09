@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Loader2, Download, Play } from "lucide-react";
+import { Loader2, Download, Play, X } from "lucide-react";
 import { Button } from "../ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { getDownloadUrl } from "@/actions/spotifyActions";
 import type { Track as TrackType } from "@/types/spotify";
@@ -11,9 +11,9 @@ interface TrackProps {
     index: number;
     handleDownloadTrack: (name: string, trackId: string) => void;
     downloadingTracks: Set<string>;
-    queuedTracks: Set<string>;
-    downloadIssues: string[];
-    deleteTrack?: (index: number, mode: "single" | "below" | "above") => void;
+    queuedTrack: boolean;
+    downloadIssue: string | undefined;
+    deleteTrack?: (index: number, quick: boolean) => void;
 }
 
 export function Track({
@@ -21,8 +21,8 @@ export function Track({
     index,
     handleDownloadTrack,
     downloadingTracks,
-    queuedTracks,
-    downloadIssues,
+    queuedTrack,
+    downloadIssue,
     deleteTrack,
 }: TrackProps) {
     if (!track) return null;
@@ -38,10 +38,8 @@ export function Track({
         } catch (err) {
             toast.error(
                 `Error streaming: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         } finally {
             setFetchingStream(false);
@@ -49,18 +47,17 @@ export function Track({
     };
 
     const isDownloading = downloadingTracks.has(track.id);
-    const isQueued = queuedTracks.has(track.id);
+    const isQueued = queuedTrack;
 
     const handleDelete = (e: React.MouseEvent) => {
-        setIsDeleting(true);
         if (e.shiftKey) {
-            deleteTrack?.(index, "below");
-        } else if (e.ctrlKey || e.metaKey) {
-            deleteTrack?.(index, "above");
+            setIsDeleting(true);
+            deleteTrack?.(index, true);
         } else {
-            deleteTrack?.(index, "single");
+            deleteTrack?.(index, false);
         }
     };
+
 
     return (
         <>
@@ -73,8 +70,7 @@ export function Track({
                     duration: 0.2,
                     delay: Math.min(1, index * 0.05),
                 }}
-                className="relative flex items-center justify-between bg-gray-800 p-4 rounded-md transition-colors duration-200 overflow-hidden"
-            >
+                className="relative flex items-center justify-between bg-gray-800 p-4 rounded-md transition-colors duration-200 overflow-hidden">
                 <div className="flex items-center space-x-4">
                     <div className="group relative">
                         <img
@@ -84,15 +80,11 @@ export function Track({
                         />
                         <div
                             className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center rounded-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                            onClick={() => handleStreamTrack(track.id)}
-                        >
+                            onClick={() => handleStreamTrack(track.id)}>
                             {fetchingStream ? (
                                 <Loader2 className="h-8 w-8 animate-spin" />
                             ) : (
-                                <Play
-                                    className="h-6 w-6 text-green-400"
-                                    strokeWidth={3}
-                                />
+                                <Play className="h-6 w-6 text-green-400" strokeWidth={3} />
                             )}
                         </div>
                     </div>
@@ -111,8 +103,7 @@ export function Track({
                             className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
                             size="sm"
                             disabled={fetchingStream}
-                            title="Stream this track"
-                        >
+                            title="Stream this track">
                             {fetchingStream ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
@@ -120,23 +111,17 @@ export function Track({
                             )}
                         </Button>
                         <Button
-                            onClick={() =>
-                                handleDownloadTrack(track.name, track.id)
-                            }
+                            onClick={() => handleDownloadTrack(track.name, track.id)}
                             className="bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
                             size="sm"
                             disabled={isDownloading || isQueued}
-                            title="Download this track"
-                        >
+                            title="Download this track">
                             {isDownloading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : isQueued ? (
                                 `Queued`
                             ) : (
-                                <Download
-                                    className="h-4 w-4"
-                                    strokeWidth={2.5}
-                                />
+                                <Download className="h-4 w-4" strokeWidth={2.5} />
                             )}
                         </Button>
                         {deleteTrack && (
@@ -144,17 +129,14 @@ export function Track({
                                 onClick={handleDelete}
                                 className="bg-red-500 hover:bg-red-600 text-white font-medium transition-colors duration-200"
                                 size="sm"
-                                title={`Click to delete this track\nShift+Click to delete this and all tracks below\nCtrl+Click to delete this and all tracks above`}
-                            >
-                                ✕
+                                title={`Click to delete this track\nShift+Click to delete instantly`}>
+                                <X className="h-4 w-4" strokeWidth={2.5} />
                             </Button>
                         )}
                     </div>
                 )}
-                {downloadIssues.includes(track.id) && (
-                    <p className="absolute top-1 right-2 text-red-500 text-2xl">
-                        *
-                    </p>
+                {downloadIssue && (
+                    <p className="absolute top-1 right-2 text-red-500 text-2xl">*</p>
                 )}
             </motion.li>
             {streamUrl && (
@@ -162,8 +144,7 @@ export function Track({
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="bg-gray-800 p-2 rounded-md"
-                >
+                    className="bg-gray-800 p-2 rounded-md">
                     <audio
                         autoPlay
                         src={streamUrl}
