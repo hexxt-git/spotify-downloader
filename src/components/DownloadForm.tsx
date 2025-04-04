@@ -10,19 +10,14 @@ import { downloadTrack } from "@/actions/spotifyActions";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { HistoryList } from "./HistoryList";
-import type {
-    Playlist as PlaylistType,
-    Track as TrackType,
-} from "@/types/spotify";
+import type { Playlist as PlaylistType, Track as TrackType } from "@/types/spotify";
 
 export default function DownloadForm() {
     const router = useRouter();
     const [url, setUrl] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [playlist, setPlaylist] = useState<PlaylistType | null>();
-    const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(
-        new Set(),
-    );
+    const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
     const [queuedTracks, setQueuedTracks] = useState<Set<string>>(new Set());
     const [downloadIssues, setDownloadIssues] = useState<string[]>([]);
     const [history, setHistory] = useState<PlaylistType[]>([]);
@@ -40,10 +35,7 @@ export default function DownloadForm() {
 
     const updateHistory = (newPlaylist: PlaylistType) => {
         const updatedHistory = [newPlaylist, ...history]
-            .filter(
-                (pl, idx, self) =>
-                    idx === self.findIndex((p) => p.url === pl.url),
-            )
+            .filter((pl, idx, self) => idx === self.findIndex((p) => p.url === pl.url))
             .slice(0, 10);
         setHistory(updatedHistory);
         localStorage.setItem("playlistHistory", JSON.stringify(updatedHistory));
@@ -63,7 +55,7 @@ export default function DownloadForm() {
             router.push(`/playlist?url=${btoa(url)}`);
         } catch (err) {
             toast.error(
-                `Error: ${err instanceof Error ? err.message : "An unknown error occurred"}`,
+                `Error: ${err instanceof Error ? err.message : "An unknown error occurred"}`
             );
             setIsLoading(false);
         }
@@ -81,10 +73,8 @@ export default function DownloadForm() {
             setDownloadIssues((prev) => [...prev, trackId]);
             toast.error(
                 `Error downloading track ${trackId}: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         } finally {
             setDownloadingTracks((prev) => {
@@ -130,10 +120,8 @@ export default function DownloadForm() {
         } catch (err) {
             toast.error(
                 `Error downloading all tracks: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         }
     };
@@ -142,16 +130,13 @@ export default function DownloadForm() {
         toast("Retrying failed downloads...");
         try {
             const failedTracks =
-                playlist?.tracks.filter((t) => downloadIssues.includes(t.id)) ||
-                [];
+                playlist?.tracks.filter((t) => downloadIssues.includes(t.id)) || [];
             await handleDownloadTrackList(failedTracks);
         } catch (err) {
             toast.error(
                 `Error retrying failed tracks: ${
-                    err instanceof Error
-                        ? err.message
-                        : "An unknown error occurred"
-                }`,
+                    err instanceof Error ? err.message : "An unknown error occurred"
+                }`
             );
         }
     };
@@ -201,8 +186,7 @@ export default function DownloadForm() {
                         type="submit"
                         className="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-medium transition-colors duration-200"
                         disabled={isLoading}
-                        title="Fetch tracks from the provided Spotify URL"
-                    >
+                        title="Fetch tracks from the provided Spotify URL">
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -213,14 +197,19 @@ export default function DownloadForm() {
                         )}
                     </Button>
                 </form>
+                <div className="border border-orange-500 bg-orange-300/20 rounded-lg text-orange-400 p-4">
+                    <h2 className="text-lg font-bold">Deprecated Status</h2>
+                    <p>
+                        Due to changes in the spotify API this app is no longer available. we are
+                        sorry for the inconvenience you will have to find another provider
+                    </p>
+                </div>
                 <AnimatePresence>
                     {history.length > 0 && (
                         <HistoryList
                             history={history}
                             setPlaylist={(playlist) => {
-                                router.push(
-                                    `/playlist?url=${btoa(playlist.url)}`,
-                                );
+                                router.push(`/playlist?url=${btoa(playlist.url)}`);
                             }}
                             handleClearHistory={handleClearHistory}
                         />

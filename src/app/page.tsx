@@ -1,5 +1,5 @@
 import DownloadForm from "../components/DownloadForm";
-import { Info } from "@/components/Info"
+import { Info } from "@/components/Info";
 
 export default function Home() {
     return (
